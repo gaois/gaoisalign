@@ -215,7 +215,7 @@ tmx_frame_prefix = """<?xml version="1.0" encoding="utf-16"?>
 <!DOCTYPE tmx SYSTEM "tmx14.dtd">
 <tmx version="1.4">
 
-<header creationtool="gaoisalign.txt" creationtoolversion="1.0" segtype="sentence" o-tmf="tsv" adminlang="ga" srclang="ga" datatype="plaintext">
+<header creationtool="gaoisalign.py" creationtoolversion="1.0" segtype="sentence" o-tmf="tsv" adminlang="ga" srclang="ga" datatype="plaintext">
 	<prop type="name">{file}</prop>
 </header>
 
