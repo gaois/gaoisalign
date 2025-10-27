@@ -2,14 +2,17 @@
 
 # Requires hunalign.exe & cygwin1.dll from LF Aligner in same directory
 
+import ast
 from bs4 import BeautifulSoup
 import csv
+import math
 import os
 from pathlib import Path
 import re
 import regex
 import requests
 import subprocess
+import xml.etree.ElementTree as ET
 import zipfile
 
 # Funciton to decode accented character entities in source xml:
@@ -35,7 +38,7 @@ def clean_for_xml(segment):
 	segment = segment.replace('\"', '&quot;')
 	return segment
 
-# Funtion to get paragraphs of text from xml document:
+# Function to get paragraphs of text from xml document:
 def xml_to_txt(data):
 	data = decode_xml_fadas(data)
 	soup = BeautifulSoup(data, features='xml')
@@ -44,6 +47,17 @@ def xml_to_txt(data):
 	for p_element in p_elements:
 		text = text + '\n' + p_element.get_text(separator='\n', strip=True).replace('\n', ' ')
 	return text
+
+# Function to get paragraphs of text from html document:
+def html_to_txt(data):
+	soup = BeautifulSoup(data, features='xml')
+	p_elements = soup.find_all('p')
+	text = ''
+	for p_element in p_elements:
+		text = text + '\n' + p_element.get_text(separator='\n', strip=True).replace('\n', ' ')
+	return text
+
+# TODO: pars/divs to sentences...
 
 # Function to download large file in chunks:
 def download_url(url, save_path, chunk_size=128):
@@ -56,84 +70,232 @@ def download_url(url, save_path, chunk_size=128):
 def fstr(template):
     return eval(f'f"""{template}"""')
 
-# Directories where data files will be stored locally:
+jurisdiction = 'eu' # EDIT/CONFIGURE THIS LINE ('ie' or 'eu')
 data_dir = r'C:\Users\oraghab\Documents\BOR\zzz\gaoisalign' # EDIT/CONFIGURE THIS LINE
-ie_ga_dir = 'ie_ga' # From Rannóg an Aistriúcháin -- Create automatically then populate MANUALLY
-ie_en_dir = 'ie_en' # From Irish Statute Book (eISB) -- Create and populate automatically
-ie_bi_dir = 'ie_bi' # For aligned data -- Create and populate automatically
 
-# Create above directories if they do not already exist:
-Path(data_dir).mkdir(parents=True, exist_ok=True)
-Path(os.path.join(data_dir, ie_ga_dir)).mkdir(parents=True, exist_ok=True)
-Path(os.path.join(data_dir, ie_en_dir)).mkdir(parents=True, exist_ok=True)
-Path(os.path.join(data_dir, ie_bi_dir)).mkdir(parents=True, exist_ok=True)
+if jurisdiction == 'ie':
 
-input(f'\nPut the Irish-language XML files you wish to align into "{data_dir}\\{ie_ga_dir}" and press Enter...\n')
+	# Directories where data files will be stored locally:
+	ie_ga_dir = 'ie_ga' # From Rannóg an Aistriúcháin -- Create automatically then populate MANUALLY
+	ie_en_dir = 'ie_en' # From Irish Statute Book (eISB) -- Create and populate automatically
+	ie_bi_dir = 'ie_bi' # For aligned data -- Create and populate automatically
 
-# Prepare xml and txt files:
-print('Preparing xml and txt files...\n')
+	# Create above directories if they do not already exist:
+	Path(data_dir).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, ie_ga_dir)).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, ie_en_dir)).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, ie_bi_dir)).mkdir(parents=True, exist_ok=True)
 
-# Create list of ie_ga xml files:
-files_ga_xml = []
-for file in os.listdir(os.path.join(data_dir, ie_ga_dir)):
-	if file.endswith('.xml'):
-		files_ga_xml.append(file)
+	input(f'\nPut the Irish-language XML files you wish to align into "{data_dir}\\{ie_ga_dir}" and press Enter...\n')
 
-batch = []
+	# Prepare xml and txt files:
+	print('Preparing xml and txt files...\n')
 
-# For each ie_ga xml file:
-for file in files_ga_xml:
-	print(file)
-	file_no_extension, file_extension = os.path.splitext(file)
-	file_ga_xml = os.path.join(data_dir, ie_ga_dir, file_no_extension+file_extension)
-	file_ga_txt = os.path.join(data_dir, ie_ga_dir, file_no_extension+'.txt')
-	file_en_xml = os.path.join(data_dir, ie_en_dir, file_no_extension+file_extension)
-	file_en_txt = os.path.join(data_dir, ie_en_dir, file_no_extension+'.txt')
+	# Create list of ie_ga xml files:
+	files_ga_xml = []
+	for file in os.listdir(os.path.join(data_dir, ie_ga_dir)):
+		if file.endswith('.xml'):
+			files_ga_xml.append(file)
+
+	batch = []
+
+	# For each ie_ga xml file:
+	for file in files_ga_xml:
+		print(file)
+		file_no_extension, file_extension = os.path.splitext(file)
+		file_ga_xml = os.path.join(data_dir, ie_ga_dir, file_no_extension+file_extension)
+		file_ga_txt = os.path.join(data_dir, ie_ga_dir, file_no_extension+'.txt')
+		file_en_xml = os.path.join(data_dir, ie_en_dir, file_no_extension+file_extension)
+		file_en_txt = os.path.join(data_dir, ie_en_dir, file_no_extension+'.txt')
+		
+		# Generate ie_ga txt file from xml source:
+		# Read xml data:
+		with open(file_ga_xml, 'r', encoding='utf-8') as f:
+			data = f.read()
+			text_ga = ''
+			text_ga = xml_to_txt(data)
+		# Write txt data:
+		with open(file_ga_txt, 'w', encoding='utf-8') as f:
+			f.write(text_ga)
+
+		# Get ie_en xml file from IrishStatuteBook.ie:
+		act_num = str(int(file[1:3]))
+		act_year = '20'+file[3:5]
+		# e.g. https://www.irishstatutebook.ie/eli/2018/act/7/enacted/en/xml
+		url = f'https://www.irishstatutebook.ie/eli/{act_year}/act/{act_num}/enacted/en/xml'
+		x = requests.get(url)
+		with open(file_en_xml, 'w', encoding='utf-8') as f:
+			f.write(x.text)
+		
+		# Generate ie_en txt file from xml source:
+		with open(file_en_txt, 'w', encoding='utf-8') as f:
+			data = x.text
+			text_en = ''
+			text_en = xml_to_txt(data)
+			f.write(text_en)
+		
+		# Build batch for hunalign:
+		aligned_file = os.path.join(data_dir, ie_bi_dir, file_no_extension+'.tsv')
+		batch.append((file_ga_txt, file_en_txt, aligned_file))
+
+elif jurisdiction == 'eu':
 	
-	# Generate ie_ga txt file from xml source:
-	# Read xml data:
-	with open(file_ga_xml, 'r', encoding='utf-8') as f:
-		data = f.read()
-		text_ga = ''
-		text_ga = xml_to_txt(data)
-	# Write txt data:
-	with open(file_ga_txt, 'w', encoding='utf-8') as f:
-		f.write(text_ga)
+	# Directories where data files will be stored locally:
+	eu_ga_dir = 'eu_ga' # From EUR-Lex -- Create and populate automatically
+	eu_en_dir = 'eu_en' # From EUR-Lex -- Create and populate automatically
+	eu_bi_dir = 'eu_bi' # For aligned data -- Create and populate automatically
 
-	# Get ie_en xml file from IrishStatuteBook.ie:
-	act_num = str(int(file[1:3]))
-	act_year = '20'+file[3:5]
-	# e.g. https://www.irishstatutebook.ie/eli/2018/act/7/enacted/en/xml
-	url = f'https://www.irishstatutebook.ie/eli/{act_year}/act/{act_num}/enacted/en/xml'
-	x = requests.get(url)
-	with open(file_en_xml, 'w', encoding='utf-8') as f:
-		f.write(x.text)
+	# Create above directories if they do not already exist:
+	Path(data_dir).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, eu_ga_dir)).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, eu_en_dir)).mkdir(parents=True, exist_ok=True)
+	Path(os.path.join(data_dir, eu_bi_dir)).mkdir(parents=True, exist_ok=True)
 	
-	# Generate ie_en txt file from xml source:
-	with open(file_en_txt, 'w', encoding='utf-8') as f:
-		data = x.text
-		text_en = ''
-		text_en = xml_to_txt(data)
-		f.write(text_en)
+	# Prepare html and txt files:
+	print('Preparing html and txt files...\n')
 	
-	# Build batch for hunalign:
-	aligned_file = os.path.join(data_dir, ie_bi_dir, file_no_extension+'.tsv')
-	batch.append((file_ga_txt, file_en_txt, aligned_file))
+	celex_list = ['32025R1534']
+	
+	# Populate celex_list from EUR-Lex SOAP API if empty:
+	if not celex_list:
+
+		# Namespaces for EUR-Lex SOAP API:
+		namespaces = {
+			'soap': 'http://www.w3.org/2003/05/soap-envelope',
+			'eurlex': 'http://eur-lex.europa.eu/search'
+		}
+
+		# URL and headers required for EUR-Lex SOAP API:
+		url="https://eur-lex.europa.eu/EURLexWebService"
+		headers = {
+			'Accept': 'text/xml, multipart/*',
+			'Content-Type': 'application/soap+xml',
+			'SOAPAction': 'https://eur-lex.europa.eu/EURLexWebService/doQuery'
+		}
+
+		# Expert query for EUR-Lex SOAP API. Create account on EUR-Lex and use GUI to build query:
+		expert_query = '(DTS_SUBDOM = ("LEGISLATION" OR "EFTA" OR "CONSLEG" OR "PRE_ACTS" OR "EU_CASE_LAW" OR "PAR_QUESTION" OR "LEGAL_PROCEDURE" OR "TREATIES" OR "INTER_AGREE") OR FM = ("BUDGET" OR "COMMUNIC" OR "CONCL" OR "DEC_DEL" OR "DIR_DEL" OR "REG_DEL" OR "PAPER_GREEN" OR "AGREE_INTERNATION" OR "RECO_DEC" OR "RECO_DIR" OR "RECO_REG" OR "RECO_RES" OR "PAPER_WHITE")) AND (PD >= 01/01/2025 <= 30/09/2025)'
+
+		# Read credentials from file containing "{'usr': 'YOUR_EURLEX-USERNAME', 'pwd': 'YOUR_EURLEX-PASSWORD'}":
+		with open('credentials.txt', 'r', encoding='utf-8') as data:
+			credentials = ast.literal_eval(data.read())
+
+		# Credentials for EUR-Lex SOAP API:
+		usr = credentials['usr']
+		pwd = credentials['pwd']
+
+		# Envelope for EUR-Lex SOAP API:
+		page = 1
+		body = f"""<?xml version="1.0" encoding="UTF-8"?>
+		<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:sear="http://eur-lex.europa.eu/search">
+		  <soap:Header>
+			<wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" soap:mustUnderstand="true">
+			  <wsse:UsernameToken xmlns:wsu="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" wsu:Id="UsernameToken-1">
+				<wsse:Username>{usr}</wsse:Username>
+				<wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">{pwd}</wsse:Password>
+			  </wsse:UsernameToken>
+			</wsse:Security>
+		  </soap:Header>
+		  <soap:Body>
+			<sear:searchRequest>
+			  <sear:expertQuery><![CDATA[{expert_query}]]></sear:expertQuery>
+			  <sear:page>{str(page)}</sear:page>
+			  <sear:pageSize>100</sear:pageSize>
+			  <sear:searchLanguage>en</sear:searchLanguage>
+			  <sear:showDocumentsAvailableIn>ga</sear:showDocumentsAvailableIn>
+			  <sear:excludeAllConsleg>false</sear:excludeAllConsleg>
+			  <sear:limitToLatestConsleg>false</sear:limitToLatestConsleg>
+			</sear:searchRequest>
+		  </soap:Body>
+		</soap:Envelope>"""
+
+		# Check results are not already cached:
+		if not os.path.isfile('celex_list.txt'):
+			
+			print('Getting celex numbers of search results...')
+			
+			# Make initial request to EUR-Lex SOAP API:
+			response = requests.request('POST', url, headers=headers, data=body)
+
+			# Parse response from EUR-Lex SOAP API:
+			root = ET.ElementTree(ET.fromstring(response.text)).getroot()
+
+			# Find total hits to build loop to retrieve all results:
+			total_hits = root.find('./soap:Body/eurlex:searchResults/eurlex:totalhits', namespaces)
+
+			# Calculate total pages and round up:
+			total_pages = math.ceil(int(total_hits.text)/100)
+
+			# Loop to make request for each page:
+			while page <= total_pages:
+
+				# Make request to EUR-Lex SOAP API for current page:
+				response = requests.request('POST', url, headers=headers, data=fstr(body))
+				root = ET.ElementTree(ET.fromstring(response.text)).getroot()
+				
+				# Get results from current page:
+				results = root.findall('./soap:Body/eurlex:searchResults/eurlex:result', namespaces)
+				
+				# Get celex from each result on page and add to celex_list:
+				for result in results:
+					try:
+						celex = result.find('eurlex:content/eurlex:NOTICE/eurlex:WORK/eurlex:ID_CELEX/eurlex:VALUE', namespaces).text
+					except:
+						celex = ''
+					if celex:
+						celex_list.append(celex)
+				page += 1
+			
+			# Cache results to file:
+			with open('celex_list.txt', 'w', encoding='utf-8') as f:
+				for celex in celex_list:
+					f.write(celex + '\n')
+
+	langs = ['GA', 'EN']
+	batch = []
+
+	for celex in celex_list:
+		print(celex)
+		for lang in langs:
+			# https://eur-lex.europa.eu/legal-content/GA/TXT/HTML/?uri=CELEX:32025R0327
+			url = f'https://eur-lex.europa.eu/legal-content/{lang}/TXT/HTML/?uri=CELEX:{celex}'
+			x = requests.get(url)
+			if lang == 'GA':
+				with open(os.path.join(data_dir, eu_ga_dir, celex+'_'+lang+'.html'), 'w', encoding='utf-8') as f:
+					f.write(x.text)
+				with open(os.path.join(data_dir, eu_ga_dir, celex+'_'+lang+'.txt'), 'w', encoding='utf-8') as f:
+					data = x.text
+					text_ga = ''
+					text_ga = html_to_txt(data)
+					f.write(text_ga)
+			if lang == 'EN':
+				with open(os.path.join(data_dir, eu_en_dir, celex+'_'+lang+'.html'), 'w', encoding='utf-8') as f:
+					f.write(x.text)
+				with open(os.path.join(data_dir, eu_en_dir, celex+'_'+lang+'.txt'), 'w', encoding='utf-8') as f:
+					data = x.text
+					text_en = ''
+					text_en = html_to_txt(data)
+					f.write(text_en)
+		
+		file_ga_txt = os.path.join(data_dir, eu_ga_dir, celex+'_GA.txt')
+		file_en_txt = os.path.join(data_dir, eu_en_dir, celex+'_EN.txt')
+		aligned_file = os.path.join(data_dir, eu_bi_dir, celex+'.tsv')
+		batch.append((file_ga_txt, file_en_txt, aligned_file))
 
 # Prepare xml and txt files:
 print('\nPreparing alignment batch...\n')
 
 # Write batch to file:
-with open('batch.txt', 'w', newline='\n', encoding='utf-8') as f:
+with open(f'batch_{jurisdiction}.txt', 'w', newline='\n', encoding='utf-8') as f:
 	csv_out=csv.writer(f, delimiter='\t')
 	for row in batch:
 		csv_out.writerow(row)
 
 # Convert batch file to unix format for hunalign:
-with open('batch.txt', 'rb') as f:
+with open(f'batch_{jurisdiction}.txt', 'rb') as f:
 	data = f.read()
 data = data.replace(b'\r\n', b'\n')
-with open('batch.txt', 'wb') as f:
+with open(f'batch_{jurisdiction}.txt', 'wb') as f:
 	f.write(data)
 
 # Build dictionary for hunalign:
@@ -143,10 +305,11 @@ print('Building dictionary...\n')
 dic_dir = 'dic'
 Path(os.path.join(data_dir, dic_dir)).mkdir(parents=True, exist_ok=True)
 
-# Download Pota Focal glossary (https://github.com/michmech/pota-focal-gluais):
+# Build path to save Pota Focal glossary (https://github.com/michmech/pota-focal-gluais):
 save_path = os.path.join(data_dir, dic_dir, 'potafocal.xml')
 # Check that file has not already been downloaded:
 if not os.path.isfile(save_path):
+	# Download glossary:
 	x = requests.get('https://raw.githubusercontent.com/michmech/pota-focal-gluais/refs/heads/master/lexicon.xml')
 	with open(save_path, 'w', encoding='utf-8') as f:
 		f.write(x.text)
@@ -204,7 +367,7 @@ with open(os.path.join(data_dir, dic_dir, 'ga-en.dic'), 'w', encoding='utf-8') a
 print('Aligning files...\n')
 
 # Call hunalign on batch (See: https://github.com/danielvarga/hunalign):
-cmd = fr'hunalign.exe {data_dir}\{dic_dir}\ga-en.dic -text -utf -bisent -realign -batch batch.txt'
+cmd = fr'hunalign.exe {data_dir}\{dic_dir}\ga-en.dic -text -utf -bisent -realign -batch batch_{jurisdiction}.txt'
 subprocess.run(cmd)
 
 # Write aligned data to tmx format:
@@ -244,14 +407,14 @@ tu_frame = """
 </tu>
 """
 
-files = os.listdir(os.path.join(data_dir, ie_bi_dir))
+files = os.listdir(os.path.join(data_dir, f'{jurisdiction}_bi'))
 files = [x for x in files if '.tsv' in x] # Filter filelist
 
 for file in files:
 	file_no_extension, file_extension = os.path.splitext(file)
-	with open(os.path.join(data_dir, ie_bi_dir, file), 'r', encoding='utf-8') as f:
+	with open(os.path.join(data_dir, f'{jurisdiction}_bi', file), 'r', encoding='utf-8') as f:
 		data = f.readlines()
-	with open(os.path.join(data_dir, ie_bi_dir, file_no_extension+'.tmx'), 'w', encoding='utf-8') as f:
+	with open(os.path.join(data_dir, f'{jurisdiction}_bi', file_no_extension+'.tmx'), 'w', encoding='utf-8') as f:
 		f.write(fstr(tmx_frame_prefix))
 		for line in data:
 			ga = clean_for_xml(line.split('\t')[0])
