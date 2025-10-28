@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import regex
 import requests
+from requests.adapters import HTTPAdapter
 import subprocess
 import xml.etree.ElementTree as ET
 import zipfile
@@ -259,7 +260,9 @@ elif jurisdiction == 'eu':
 		for lang in langs:
 			# https://eur-lex.europa.eu/legal-content/GA/TXT/HTML/?uri=CELEX:32025R0327
 			url = f'https://eur-lex.europa.eu/legal-content/{lang}/TXT/HTML/?uri=CELEX:{celex}'
-			x = requests.get(url)
+			s = requests.Session()
+			s.mount('https://eur-lex.europa.eu', HTTPAdapter(max_retries=5))
+			x = s.get(url)
 			if lang == 'GA':
 				with open(os.path.join(data_dir, eu_ga_dir, celex+'_'+lang+'.html'), 'w', encoding='utf-8') as f:
 					f.write(x.text)
