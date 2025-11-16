@@ -13,8 +13,12 @@ import regex
 import requests
 from requests.adapters import HTTPAdapter
 import subprocess
+from wtpsplit import SaT
 import xml.etree.ElementTree as ET
 import zipfile
+
+# Comment out to skip sentence splitting using SaT (EU):
+sat = SaT("sat-3l-sm") # Select SaT Model for sentence segmentation. See: https://github.com/segment-any-text/wtpsplit
 
 # Funciton to decode accented character entities in source xml:
 def decode_xml_fadas(text):
@@ -39,7 +43,7 @@ def clean_for_xml(segment):
 	segment = segment.replace('\"', '&quot;')
 	return segment
 
-# Function to get paragraphs of text from xml document:
+# Function to get paragraphs of text from xml document (IE):
 def xml_to_txt(data):
 	data = decode_xml_fadas(data)
 	soup = BeautifulSoup(data, features='xml')
@@ -49,16 +53,15 @@ def xml_to_txt(data):
 		text = text + '\n' + p_element.get_text(separator='\n', strip=True).replace('\n', ' ')
 	return text
 
-# Function to get paragraphs of text from html document:
+# Function to get paragraphs of text from html document (EU):
 def html_to_txt(data):
 	soup = BeautifulSoup(data, features='xml')
 	p_elements = soup.find_all('p')
 	text = ''
+	# TODO merge pars in same table row...
 	for p_element in p_elements:
 		text = text + '\n' + p_element.get_text(separator='\n', strip=True).replace('\n', ' ')
 	return text
-
-# TODO: pars/divs to sentences...
 
 # Function to download large file in chunks:
 def download_url(url, save_path, chunk_size=128):
@@ -155,7 +158,7 @@ elif jurisdiction == 'eu':
 	# Prepare html and txt files:
 	print('Preparing html and txt files...\n')
 	
-	celex_list = ['32025R1534']
+	celex_list = ['32025B00331', '32025B00964R(01)', '32025R0327', '32025R1534']
 	
 	# Populate celex_list from EUR-Lex SOAP API if empty:
 	if not celex_list:
@@ -263,22 +266,33 @@ elif jurisdiction == 'eu':
 			s = requests.Session()
 			s.mount('https://eur-lex.europa.eu', HTTPAdapter(max_retries=5))
 			x = s.get(url)
+			data = x.text.replace(u'\xa0', ' ') # Replace non-breaking space character
 			if lang == 'GA':
 				with open(os.path.join(data_dir, eu_ga_dir, celex+'_'+lang+'.html'), 'w', encoding='utf-8') as f:
-					f.write(x.text)
+					f.write(data)
 				with open(os.path.join(data_dir, eu_ga_dir, celex+'_'+lang+'.txt'), 'w', encoding='utf-8') as f:
-					data = x.text
 					text_ga = ''
 					text_ga = html_to_txt(data)
-					f.write(text_ga)
+					if sat:
+						# Split paragraphs into sentences using SaT:
+						sentences_ga = sat.split(text_ga)
+						for sentence_ga in sentences_ga:
+							f.write(sentence_ga + '\n')
+					else:
+						f.write(text_ga)
 			if lang == 'EN':
 				with open(os.path.join(data_dir, eu_en_dir, celex+'_'+lang+'.html'), 'w', encoding='utf-8') as f:
-					f.write(x.text)
+					f.write(data)
 				with open(os.path.join(data_dir, eu_en_dir, celex+'_'+lang+'.txt'), 'w', encoding='utf-8') as f:
-					data = x.text
 					text_en = ''
 					text_en = html_to_txt(data)
-					f.write(text_en)
+					if sat:
+						# Split paragraphs into sentences using SaT:
+						sentences_en = sat.split(text_en)
+						for sentence_en in sentences_en:
+							f.write(sentence_en + '\n')
+					else:
+						f.write(text_en)
 		
 		file_ga_txt = os.path.join(data_dir, eu_ga_dir, celex+'_GA.txt')
 		file_en_txt = os.path.join(data_dir, eu_en_dir, celex+'_EN.txt')
@@ -423,7 +437,7 @@ for file in files:
 			ga = clean_for_xml(line.split('\t')[0])
 			en = clean_for_xml(line.split('\t')[1])
 			# Filter empty and non-alpha results:
-			ga_contains_text = regex.search(r'\p{L}', ga)
+			ga_contains_text = regex.search(r'\p{L}', ga) # \p{L} matches a single code point in the category "letter".
 			if ga and ga_contains_text:
 				f.write(fstr(tu_frame))
 		f.write(fstr(tmx_frame_suffix))
