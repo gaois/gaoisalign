@@ -74,7 +74,7 @@ def download_url(url, save_path, chunk_size=128):
 def fstr(template):
     return eval(f'f"""{template}"""')
 
-jurisdiction = 'eu' # EDIT/CONFIGURE THIS LINE ('ie' or 'eu')
+jurisdiction = 'ie' # EDIT/CONFIGURE THIS LINE ('ie' or 'eu')
 data_dir = r'C:\Users\oraghab\Documents\BOR\zzz\gaoisalign' # EDIT/CONFIGURE THIS LINE
 
 if jurisdiction == 'ie':
