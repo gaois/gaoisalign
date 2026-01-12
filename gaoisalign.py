@@ -391,7 +391,7 @@ subprocess.run(cmd)
 print('\nWriting aligned data to tmx format...')
 
 # TMX markup prefix:
-tmx_frame_prefix = """<?xml version="1.0" encoding="utf-16"?>
+tmx_frame_prefix = """<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE tmx SYSTEM "tmx14.dtd">
 <tmx version="1.4">
 
