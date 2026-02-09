@@ -80,7 +80,7 @@ data_dir = r'C:\Users\oraghab\Documents\BOR\zzz\gaoisalign' # EDIT/CONFIGURE THI
 if jurisdiction == 'ie':
 
 	# Directories where data files will be stored locally:
-	ie_ga_dir = 'ie_ga' # From Rannóg an Aistriúcháin -- Create automatically then populate MANUALLY
+	ie_ga_dir = 'ie_ga' # From Rannóg an Aistriúcháin -- Create automatically then populate MANUALLY (when prompted)
 	ie_en_dir = 'ie_en' # From Irish Statute Book (eISB) -- Create and populate automatically
 	ie_bi_dir = 'ie_bi' # For aligned data -- Create and populate automatically
 
