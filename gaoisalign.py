@@ -178,7 +178,8 @@ elif jurisdiction == 'eu':
 		}
 
 		# Expert query for EUR-Lex SOAP API. Create account on EUR-Lex and use GUI to build query:
-		expert_query = '(DTS_SUBDOM = ("LEGISLATION" OR "EFTA" OR "CONSLEG" OR "PRE_ACTS" OR "EU_CASE_LAW" OR "PAR_QUESTION" OR "LEGAL_PROCEDURE" OR "TREATIES" OR "INTER_AGREE") OR FM = ("BUDGET" OR "COMMUNIC" OR "CONCL" OR "DEC_DEL" OR "DIR_DEL" OR "REG_DEL" OR "PAPER_GREEN" OR "AGREE_INTERNATION" OR "RECO_DEC" OR "RECO_DIR" OR "RECO_REG" OR "RECO_RES" OR "PAPER_WHITE")) AND (PD >= 01/01/2025 <= 31/12/2025)'
+		#expert_query = '(DTS_SUBDOM = ("LEGISLATION" OR "EFTA" OR "CONSLEG" OR "PRE_ACTS" OR "EU_CASE_LAW" OR "PAR_QUESTION" OR "LEGAL_PROCEDURE" OR "TREATIES" OR "INTER_AGREE") OR FM = ("BUDGET" OR "COMMUNIC" OR "CONCL" OR "DEC_DEL" OR "DIR_DEL" OR "REG_DEL" OR "PAPER_GREEN" OR "AGREE_INTERNATION" OR "RECO_DEC" OR "RECO_DIR" OR "RECO_REG" OR "RECO_RES" OR "PAPER_WHITE")) AND (PD >= 01/01/2025 <= 31/12/2025)' # ró-leathan [10,063 thoradh]
+		expert_query = '((DTS_SUBDOM = "LEGISLATION") AND (PD >= 01/01/2025 <= 31/12/2025)) NOT FM_CODED = CORRIGENDUM' # níos cúinge [2,604 thoradh]
 
 		# Read credentials from file containing "{'usr': 'YOUR_EURLEX-USERNAME', 'pwd': 'YOUR_EURLEX-PASSWORD'}":
 		with open('credentials.txt', 'r', encoding='utf-8') as data:
