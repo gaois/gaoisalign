@@ -1,3 +1,33 @@
 *.dll
 *.exe
 *.txt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor / type-checking artefacts
+typings/
+pyrightconfig.json
+
+# Hunalign / Cygwin crash dumps (not useful in version control)
+*.stackdump
+hunalign.exe.stackdump
+
+# SaT model comparison outputs (scripts/compare_sat.py)
+sat_compare/
+
+# Corpus data
+eu_ga/
+eu_en/
+eu_bi/
+ie_ga/
+ie_en/
+ie_bi/
+dic/
+
+# Test outputs
+test_fetch_output/
+
+# Virtual env
+.venv/
