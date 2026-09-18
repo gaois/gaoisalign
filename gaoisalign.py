@@ -3,8 +3,9 @@
 # Requires hunalign.exe & cygwin1.dll from LF Aligner in same directory
 
 import ast
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup # pip install lxml
 import csv
+import datetime
 import math
 import os
 from pathlib import Path
@@ -13,7 +14,7 @@ import regex
 import requests
 from requests.adapters import HTTPAdapter
 import subprocess
-from wtpsplit import SaT
+from wtpsplit import SaT # pip install torch
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -123,8 +124,12 @@ if jurisdiction == 'ie':
 			f.write(text_ga)
 
 		# Get ie_en xml file from IrishStatuteBook.ie:
-		act_num = str(int(file[1:3]))
-		act_year = '20'+file[3:5]
+		num_year_padded = re.findall(r'(\d+)', file)[0].zfill(4)
+		act_num = str(int(num_year_padded[:2]))
+		if int(num_year_padded[2:]) > int(datetime.datetime.now().strftime("%y")):
+			act_year = '19'+num_year_padded[2:]
+		else:
+			act_year = '20'+num_year_padded[2:]
 		# e.g. https://www.irishstatutebook.ie/eli/2018/act/7/enacted/en/xml
 		url = f'https://www.irishstatutebook.ie/eli/{act_year}/act/{act_num}/enacted/en/xml'
 		x = requests.get(url)
